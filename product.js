@@ -5,16 +5,17 @@ const template = require('./templates/product')
 const colors = require('./data/colors')
 const sizes = require('./data/sizes')
 const ATTRIBUTE_MAP = {
-  color: "f460a413e5b6469a9550aaeb8ad0af7e",
-  size: "c0074e637f68498ba56884c7fed318c4"
+  color: "434923621f954edd9901c33d4e9cadc4",
+  size: "ecd10c6946724d3aa3b5e1bd64c2ffa6"
 }
 let i = 0
 function timeout(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 const getProducts = async (qty) => await request(`https://fashion.storefrontcloud.io/api/catalog/vue_storefront_catalog/product/_search?q=type_id:configurable&size=${qty}&from=1`)
-const insertProduct = async (productData, colorId, sizeId, colorLabel, sizeLabel) => { 
-  const response = await postAdmin('product?_response=true', template(productData, colorId, sizeId, colorLabel, sizeLabel), 1)
+const insertProduct = async (productData, configurableChildren) => { 
+  console.log(template(productData, configurableChildren).configuratorSettings)
+  const response = await postAdmin('product?_response=true', template(productData, configurableChildren), 1)
   return response.data.data.id
 }
 
@@ -73,6 +74,7 @@ const getColorId = async (optionId) => {
     {"page":1,"limit":50,"sort":[{"field":"property_group_option.name","order":"ASC","naturalSorting":false}],"term":label}
   )
   let options = option.data.data.filter(option => option.name == label)
+
   return options[0].id
 }
 
@@ -113,17 +115,98 @@ const appendCategories = async (insertedProductId, { reference }) => {
         }
       }]} )
     }
-
-   
-
   } catch (e) {
     console.log(`error occured: ${e}`)
   }
-  
   return []
-
 }
-const qty = 100
+
+const prepareVariants = async (parentId, variants) => {
+  const output = []
+
+  for (const {sku, size, color, name, price, priceInclTax} of variants) {
+
+  
+    const sizeId = await getSizeId(size)
+    const colorId = await getColorId(color)
+    const sizeLabel = translateIdToLabelSize(size)
+    const colorLabel = translateIdToLabelColor(color)
+
+    output.push({
+      'id': colorId,
+      
+        'price' : {'gross': priceInclTax, 'net' : price, 'linked' : false},
+        'option': {
+            'id' : colorId,
+            'name' : colorLabel,
+            'groupId' : ATTRIBUTE_MAP.color
+        }
+    })
+  
+    output.push({
+      'id': sizeId,
+        'price' : {'gross': priceInclTax, 'net' : price, 'linked' : false},
+        'option': {
+            'id' : sizeId,
+            'name' : sizeLabel,
+            'groupId': ATTRIBUTE_MAP.size
+        }
+    })
+
+  }
+
+  return output
+}
+
+const appendVariants = async (parentId, variants) => {
+  
+
+  const variations = await variants.map(async ({size, color, price, priceInclTax, sku}) => {
+    const sizeId = await getSizeId(size)
+    const colorId = await getColorId(color)
+
+    return {
+      "parentId": parentId,
+      "options": [
+        {
+          "id": sizeId
+        },
+        {
+          "id": colorId
+        }
+      ],
+      "stock": 10,
+      "productNumber": sku,
+      "price": {
+        "net": price,
+        "gross": priceInclTax,
+        "linked": false,
+        "extensions": []
+      },
+      "priceRules": [],
+      "taxId": "43e878543464403c8535d0a0592f7f6f"
+    }
+
+  })
+   
+
+
+
+  Promise.all(variations).then(async items => {
+    const requestData = [
+      {
+        "action": "upsert",
+        "entity": "product",
+        "payload": items,
+      }
+    ]
+
+      const response = await postAdmin(`_action/sync`, requestData)
+      console.log(response.data)
+  })
+}
+
+const qty = 30
 getProducts(qty).then(async products => {
   
   console.log('start importing...')
@@ -133,17 +216,14 @@ getProducts(qty).then(async products => {
     try {
       const productData = product._source
       console.log(`trying to add product with sku: ${productData.sku}`)
-      
-
-      const colorId = productData.color_options.length ? await getColorId(productData.color_options[0]) : 0
-      const sizeId = productData.size_options.length ? await getSizeId(productData.size_options[0]) : 0
-      const colorLabel = colorId ? translateIdToLabelColor(productData.color_options[0]) : false
-      const sizeLabel = sizeId ? translateIdToLabelSize(productData.size_options[0]) : false
-
-      const insertedId = await insertProduct(Object.assign({}, productData, {name: productData.name}), colorId, sizeId, colorLabel, sizeLabel)
+      const configurableChildren = await prepareVariants(0, productData.configurable_children)
+      const insertedId = await insertProduct(productData, configurableChildren)
       await appendMedia(insertedId, productData)
       await appendCategories(insertedId, productData)
-      const { sku, name, reference } = productData
+      await appendVariants(insertedId, productData.configurable_children)
+      
+
+     const { sku, name, reference } = productData
       ++i
       console.log(sku, name, reference ,` | inserted (${i} of ${qty})`)
     } catch (e) {

@@ -3,8 +3,8 @@ const path = require('path')
 const { getAdmin, postAdmin, patchAdmin } = require('./common/apiConnectorAdmin')
 
 const ATTRIBUTE_MAP = {
-  color: "f460a413e5b6469a9550aaeb8ad0af7e",
-  size: "c0074e637f68498ba56884c7fed318c4"
+  color: "434923621f954edd9901c33d4e9cadc4",
+  size: "ecd10c6946724d3aa3b5e1bd64c2ffa6"
 }
 
 const colors = require('./data/colors')
