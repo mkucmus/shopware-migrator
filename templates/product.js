@@ -2,8 +2,8 @@ module.exports = ({id, sku, name, price, final_price, reference, description, sp
   {
     "active": true,
     "stock": Math.floor(Math.random() * 100) + 50 ,
-    "manufacturerId": "3846d5dc13254408b1231e64d4aad3d7",
-    "taxId": "43e878543464403c8535d0a0592f7f6f",
+    "manufacturerId": "9c4f644a67f44c31b2a6659e7d5d7178",
+    "taxId": "bf56791139c04121b81c6e39c6a2360f",
     "coverId": null,
     "price": {
       "gross": price ? price : 0,
@@ -16,8 +16,10 @@ module.exports = ({id, sku, name, price, final_price, reference, description, sp
     "description": description,
     "visibilities":[
       {"salesChannelId":"98432def39fc4624b33213a56b8c944d","visibility": 30},
-      {"salesChannelId":"56d257dcb60a4574807a0b4f68787e72","visibility": 30},
     ],
     "configuratorSettings": configurableChildren
   }
 )
+
+
+if ( doc['final_price'].size() != 0) { if (doc['final_price'].value != 0) { doc['final_price'].value} } else if (doc['special_price'].size() != 0) { if (doc['special_price'].value != 0) { doc['special_price'].value}  } else { doc['price'].value }
