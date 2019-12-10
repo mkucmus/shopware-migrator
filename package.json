@@ -6,6 +6,8 @@
   "dependencies": {
     "axios": "^0.18.0",
     "colornames": "^1.1.1",
-    "md5": "^2.2.1"
+    "faker": "^4.1.0",
+    "md5": "^2.2.1",
+    "prettier": "^1.19.1"
   }
 }
